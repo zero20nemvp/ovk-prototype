@@ -1,0 +1,21 @@
+{% if runs.is_empty() %}
+<p class="hint">{{ t.no_runs }}</p>
+{% endif %}
+{% for r in runs %}
+<a class="card run" href="/runs/{{ r.item }}?lang={{ t.lang }}">
+  <div class="row">
+    <span class="ord">#{{ r.item }}</span>
+    <span class="title">{{ r.title }}</span>
+  </div>
+  <div class="row">
+    {% if r.status == "predicted" %}
+    <span class="badge {{ r.verdict_class }}">{{ r.verdict }}</span>
+    <span class="hint">{{ t.weighted_fav_short }} {{ r.fav }}</span>
+    {% else %}
+    <span class="badge pending">{{ t.pending }}</span>
+    {% endif %}
+    <span class="hint">{{ r.reply_count }} {{ t.replies_word }}</span>
+    {% if r.has_outcome %}<span class="hint">✓ {{ t.actual_word }}</span>{% endif %}
+  </div>
+</a>
+{% endfor %}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}OVK · red-team panel{% endblock %}</title>
+  <script src="/static/htmx.min.js"></script>
+  <style>
+    :root { color-scheme: light dark; --muted: #778; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.55 -apple-system, "Segoe UI", "Helvetica Neue", sans-serif; }
+    header { display: flex; align-items: baseline; gap: .75rem; padding: .9rem 1.25rem;
+             border-bottom: 1px solid rgba(128,128,128,.35); }
+    header a { font-weight: 700; text-decoration: none; color: inherit; }
+    header .sub { color: var(--muted); font-size: .85rem; }
+    main { max-width: 58rem; margin: 0 auto; padding: 1.25rem; }
+    h2 { margin: 1.4rem 0 .5rem; } h3 { margin: .2rem 0 .5rem; }
+    .hint { color: var(--muted); font-size: .85rem; }
+    textarea { width: 100%; font: inherit; padding: .6rem; border-radius: 8px;
+               border: 1px solid rgba(128,128,128,.5); background: transparent; color: inherit; }
+    button { font: inherit; padding: .45rem 1rem; border-radius: 8px; cursor: pointer;
+             border: 1px solid rgba(128,128,128,.5); background: transparent; color: inherit; }
+    button[type=submit] { font-weight: 600; }
+    .card { display: block; border: 1px solid rgba(128,128,128,.35); border-radius: 10px;
+            padding: .75rem .9rem; margin: .6rem 0; text-decoration: none; color: inherit; }
+    a.card:hover { border-color: rgba(128,128,128,.8); }
+    .row { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+    .ord { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .badge { font-size: .72rem; font-weight: 700; letter-spacing: .04em; padding: .1rem .5rem;
+             border-radius: 999px; border: 1px solid currentColor; }
+    .badge.win   { color: #1a7f37; }
+    .badge.mixed { color: #b57e10; }
+    .badge.flop  { color: #b42318; }
+    .badge.pending { color: var(--muted); }
+    .flash { padding: .5rem .75rem; border-radius: 8px; border: 1px solid; margin: .6rem 0; }
+    .flash-ok  { color: #1a7f37; }
+    .flash-err { color: #b42318; }
+    .reply .lock { margin-left: auto; font-size: .75rem; padding: .1rem .5rem; }
+    .reply.locked { background: rgba(128,128,128,.08); }
+    blockquote.draft { margin: .6rem 0; padding: .6rem .9rem; border-left: 3px solid rgba(128,128,128,.6);
+                       white-space: pre-wrap; }
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; margin: .4rem 0; }
+    caption { text-align: left; font-weight: 600; padding-bottom: .25rem; }
+    th, td { text-align: left; padding: .2rem .5rem; border-bottom: 1px solid rgba(128,128,128,.25); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 40rem) { .grid2 { grid-template-columns: 1fr; } }
+    pre { overflow-x: auto; font-size: .8rem; }
+    .saved { color: #1a7f37; margin-left: .5rem; }
+    form { margin: .6rem 0; }
+    form.outcome label { display: inline-flex; flex-direction: column; font-size: .82rem;
+                         color: var(--muted); margin: .3rem .8rem .3rem 0; }
+    form.outcome input { font: inherit; width: 8rem; padding: .3rem .5rem; border-radius: 6px;
+                         border: 1px solid rgba(128,128,128,.5); background: transparent; color: inherit; }
+    fieldset.engine { border: none; padding: 0; margin: .4rem 0; }
+    fieldset.engine label { margin-right: 1.2rem; font-size: .88rem; }
+    header .lang { margin-left: auto; font-size: .85rem; }
+  </style>
+</head>
+<body>
+<header>
+  <a href="/">OVK · red-team panel</a>
+  <span class="sub">{{ t.tagline }}</span>
+  <a class="lang" href="?lang={{ t.other_lang }}">{{ t.toggle_label }}</a>
+</header>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

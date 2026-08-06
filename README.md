@@ -6,6 +6,9 @@ A static, bilingual (EN/ET) UX prototype of a red-team panel that stress-tests d
 
 ## Files
 
+- `server/` — Rust + HTMX backend that runs the panel for real against the OVK
+  engine, integrating solely over OVK's flow queue (see `server/README.md`).
+  The two HTML files below remain the static, mocked sales demo.
 - `index.html` — the standalone, self-contained page (open directly in a browser, or serve as a static site). Single file: inline CSS + JS, no build step, no dependencies.
 - `fragment-source.html` — the same content as a body-only fragment (no `<!doctype>`/`<html>`/`<head>`), kept for republishing into tools that wrap fragments themselves (e.g. Claude Artifacts). Edit this file, then regenerate `index.html` by wrapping it with a `<!doctype html><html><head><meta charset="utf-8">...</head><body>` shell — the wrapper is what fixes Estonian character rendering (õ/ä/ö/ü/š/ž), so don't serve `fragment-source.html` directly without it.
 

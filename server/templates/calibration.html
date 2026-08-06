@@ -1,0 +1,21 @@
+<p class="hint">{{ t.calibration_hint }}</p>
+{% if rows.is_empty() %}
+<p class="hint">{{ t.calibration_empty }}</p>
+{% else %}
+<table>
+  <thead><tr>
+    <th>{{ t.item_col }}</th><th></th>
+    <th>{{ t.predicted_word }}</th><th>{{ t.actual_word }}</th><th>{{ t.error_word }}</th>
+  </tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><a href="/runs/{{ r.item }}?lang={{ t.lang }}">#{{ r.item }}</a></td>
+      <td>{{ r.title }}</td>
+      <td>{{ r.predicted }}</td><td>{{ r.actual }}</td><td>{{ r.error }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="hint">{{ t.mean_error }}: <strong>{{ mean_error }}</strong></p>
+{% endif %}

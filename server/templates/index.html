@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block body %}
+<section>
+  <h2>{{ t.submit_heading }}</h2>
+  <p class="hint">queue <code>{{ queue }}</code> · runner <code>{{ runner }}</code></p>
+  <form hx-post="/runs?lang={{ t.lang }}" hx-target="#flash" hx-swap="innerHTML">
+    <textarea name="draft" rows="5" required placeholder="{{ t.draft_placeholder }}"></textarea>
+    <fieldset class="engine">
+      <label><input type="radio" name="engine" value="model"
+        {% if engine_default == "model" %}checked{% endif %}> {{ t.engine_model }}</label>
+      <label><input type="radio" name="engine" value="mock"
+        {% if engine_default == "mock" %}checked{% endif %}> {{ t.engine_mock }}</label>
+    </fieldset>
+    <button type="submit">{{ t.run_button }}</button>
+  </form>
+  <div id="flash"></div>
+</section>
+
+<section>
+  <h2>{{ t.runs_heading }}</h2>
+  <div id="runs" hx-get="/fragments/runs?lang={{ t.lang }}" hx-trigger="load, every 3s" hx-swap="innerHTML">
+    <p class="hint">{{ t.loading }}</p>
+  </div>
+</section>
+
+<section>
+  <h2>{{ t.calibration_heading }}</h2>
+  <div id="calibration" hx-get="/fragments/calibration?lang={{ t.lang }}" hx-trigger="load, every 10s" hx-swap="innerHTML">
+    <p class="hint">{{ t.loading }}</p>
+  </div>
+</section>
+{% endblock %}

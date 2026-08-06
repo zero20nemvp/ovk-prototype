@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OVK Red-Team Panel — Roadmap</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: #1a1c22; --paper: #fbfaf7; --muted: #6b7280; --line: rgba(128,128,128,.30);
+    --accent: #3b6ef5; --live: #1a7f37; --next: #b57e10; --later: #6b7280;
+    --card: rgba(128,128,128,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e8e6e1; --paper: #14161b; --card: rgba(255,255,255,.045); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 16px/1.6 -apple-system, "Segoe UI", "Helvetica Neue", sans-serif; }
+  main { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+  .kicker { text-transform: uppercase; letter-spacing: .18em; font-size: .72rem;
+            color: var(--accent); font-weight: 700; }
+  h1 { font-size: 2.1rem; line-height: 1.15; margin: .4rem 0 .6rem; }
+  .lede { font-size: 1.12rem; color: var(--muted); max-width: 44rem; margin: 0 0 .8rem; }
+  h2 { font-size: 1.25rem; margin: 2.6rem 0 .8rem; padding-top: 1.2rem;
+       border-top: 1px solid var(--line); }
+  h3 { font-size: 1rem; margin: 1.1rem 0 .35rem; }
+  p  { max-width: 46rem; }
+  .muted { color: var(--muted); }
+  code { font-size: .88em; background: var(--card); padding: .1em .35em; border-radius: 5px; }
+
+  .pill { display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .06em;
+          padding: .12rem .55rem; border-radius: 999px; border: 1.5px solid currentColor;
+          vertical-align: middle; }
+  .pill.live  { color: var(--live); }
+  .pill.next  { color: var(--next); }
+  .pill.later { color: var(--later); }
+
+  /* pipeline diagram */
+  .pipe { display: flex; flex-wrap: wrap; gap: .5rem; align-items: stretch; margin: 1.2rem 0; }
+  .pipe .stage { flex: 1 1 9.5rem; background: var(--card); border: 1px solid var(--line);
+                 border-radius: 12px; padding: .7rem .8rem; min-width: 9.5rem; }
+  .pipe .stage b { display: block; font-size: .92rem; }
+  .pipe .stage span { font-size: .78rem; color: var(--muted); }
+  .pipe .arrow { align-self: center; color: var(--muted); font-size: 1.1rem; }
+  .rapids { border-color: var(--accent) !important; }
+  .rapids b { color: var(--accent); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+  @media (max-width: 42rem) { .cols { grid-template-columns: 1fr; } }
+
+  ul.checks { list-style: none; padding: 0; margin: .6rem 0; }
+  ul.checks li { padding: .34rem 0 .34rem 1.7rem; position: relative; }
+  ul.checks li::before { position: absolute; left: 0; top: .34rem; }
+  ul.checks.done  li::before { content: "✓"; color: var(--live); font-weight: 800; }
+  ul.checks.todo  li::before { content: "→"; color: var(--next); font-weight: 800; }
+  ul.checks.later li::before { content: "·"; color: var(--later); font-weight: 800; font-size: 1.4em; line-height: .8; }
+  ul.checks li small { display: block; color: var(--muted); font-size: .82rem; }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--card);
+             border-radius: 0 10px 10px 0; padding: .8rem 1rem; margin: 1.4rem 0; max-width: 46rem; }
+  .callout.honest { border-left-color: var(--next); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: 1rem 0; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+           font-size: .82rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="kicker">OVK · Red-Team Panel</div>
+  <h1>Know how it lands before you publish it.</h1>
+  <p class="lede">A synthetic red-team panel that stress-tests draft public communications
+  against weighted audience segments, skeptics, and hostile voices — and now runs
+  <strong>for real</strong>: a Rust backend wired to the OVK panel engine over an
+  immutable message bus, with a server-rendered HTMX interface on top.</p>
+  <p><span class="pill live">LIVE</span>&nbsp; working end-to-end today &nbsp;·&nbsp;
+     <span class="pill next">NEXT</span>&nbsp; committed near-term &nbsp;·&nbsp;
+     <span class="pill later">LATER</span>&nbsp; production build-out</p>
+
+  <h2>How it works</h2>
+  <p>Everything rides <em>the rapids</em> — OVK's append-only, immutable flow queue.
+  Messages are appended once and never modified, deleted, or consumed; every reader keeps
+  its own durable cursor. That one property buys auditability for free: every number on
+  every screen can be replayed from source.</p>
+
+  <div class="pipe">
+    <div class="stage"><b>You</b><span>paste a draft into the HTMX UI</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Rust server</b><span>appends the query; its resident listener answers via OVK's personas</span></div>
+    <div class="arrow">→</div>
+    <div class="stage rapids"><b>The rapids</b><span><code>content:query</code> → 20× <code>reply:&lt;persona&gt;</code> → <code>prediction:&lt;item&gt;</code></span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Consumer</b><span>durable cursor, crash-safe, at-least-once</span></div>
+    <div class="arrow">→</div>
+    <div class="stage"><b>Your screen</b><span>verdict, favorability, strata — self-updating</span></div>
+  </div>
+
+  <p>The OVK engine fans the draft out to a <strong>demographically weighted panel of
+  in-character personas</strong>, scores each reaction, and aggregates by <em>stratum
+  weight</em> — a segment's share of the population, not its share of the panel — into a
+  favorability prediction with per-archetype and per-locality breakdowns and a plain
+  verdict: <strong>LIKELY WINS · MIXED · LIKELY FLOPS</strong>.</p>
+
+  <p>This project adds the product layer OVK deliberately doesn't have, in its own
+  <strong>enrichment store</strong>: persona display metadata, the <em>locked-voice</em>
+  redaction (a hostile persona's score counts, its reaction text is never shown), and
+  per-run operator notes. Queue entries are referenced by ordinal, never copied-and-mutated.</p>
+
+  <div class="callout">
+    <strong>The architectural bet:</strong> zero changes to OVK. The backend is just another
+    producer/consumer on the bus — the integration pattern OVK's design explicitly blesses
+    (non-destructive reads; N readers cost the same as one). Engine and product can evolve
+    independently forever, because the only contract between them is the message types on the queue.
+  </div>
+
+  <h2>What's live today <span class="pill live">LIVE</span></h2>
+  <div class="cols">
+    <div>
+      <ul class="checks done">
+        <li>End-to-end loop with <strong>real LLM personas</strong>, verified: submit a draft →
+            20-persona fan-out → replies and prediction stream back → verdict on screen.
+            <small>"model" is the default engine, routed through OVK's llm.sh seam; if the model
+            box is unreachable the run degrades to mock <em>with an honest label</em> — never
+            silently.</small></li>
+        <li>Resident panel listener.<small>Answers any <code>content:query</code> on the bus —
+            from this UI or any other producer. Skips queries already answered elsewhere,
+            fast-forwards past history, and can't be wedged by unknown message types.</small></li>
+        <li>Red-team persona cast.<small>OVK's marketing archetypes mapped to red-team roles —
+            investigative journalist, regulator, watchdog, meme amplifier — with the hostile
+            amplifier <strong>locked by default</strong>: its score counts, its text is never shown.</small></li>
+        <li>Calibration loop, closed in the UI.<small>Record a run's real outcome (OVK's exact
+            <code>outcome:&lt;item&gt;</code> format, appended to the rapids); the UI joins predicted
+            vs actual per run and tracks the panel's mean signed error.</small></li>
+      </ul>
+    </div>
+    <div>
+      <ul class="checks done">
+        <li>Bilingual EN/ET server-rendered UI.<small>One click toggles; verdicts, roles, and
+            every label localize. Matches the static demo before Estonian prospect
+            conversations.</small></li>
+        <li>Native Rust client for the flow daemon's socket protocol.<small>Protocol verified
+            command-by-command against a live daemon; no OVK code linked.</small></li>
+        <li>Crash-safe consumer with full replay.<small>Commit-after-ingest, idempotent
+            ingestion — and if the local DB is ever wiped, the entire UI state rebuilds from
+            the queue. Auditability demonstrated, not just claimed.</small></li>
+        <li>Enrichment store + HTMX UI.<small>SQLite keyed by queue ordinals; lock-a-voice
+            redaction, operator notes, per-run engine badge. Self-polling views, vendored
+            htmx, no build step. The static bilingual sales demo remains untouched.</small></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>What's next <span class="pill next">NEXT</span></h2>
+  <ul class="checks todo">
+    <li>Per-stratum error correction surfaced.<small>The mean signed error is live; the next
+        step is OVK's per-stratum bias table feeding corrected predictions for the following
+        run — the full calibrate.rb loop rendered in the UI.</small></li>
+    <li>Live updates via SSE instead of polling.<small>htmx supports it natively; the polling
+        UX works but SSE is cleaner for the replies-trickling-in moment.</small></li>
+    <li>Richer persona cards.<small>Surface each persona's demographic layers from OVK's
+        panel files on hover/click, so a verdict is inspectable voice by voice.</small></li>
+  </ul>
+
+  <h2>Later <span class="pill later">LATER</span></h2>
+  <ul class="checks later">
+    <li>Accounts, multi-tenancy, billing <span class="muted">— the mocked localStorage account, done for real.</span></li>
+    <li>Real stratified population modeling and media/social-listening inputs.</li>
+    <li>Production infrastructure: the rapids over TCP to a hosted flow hub, deploys, monitoring.</li>
+  </ul>
+
+  <h2>Why this is defensible</h2>
+  <table>
+    <tr><th>Claim</th><th>Why it holds</th></tr>
+    <tr><td><strong>Not just one AI prompt</strong></td>
+        <td>Weighted persona modeling with population strata, plus a calibration loop that joins
+            every prediction to its real outcome and subtracts measured bias from the next one.</td></tr>
+    <tr><td><strong>Auditable by construction</strong></td>
+        <td>The bus is append-only and immutable. Any prediction on any screen can be replayed
+            entry-by-entry from the queue that produced it.</td></tr>
+    <tr><td><strong>Honest by policy</strong></td>
+        <td>Predictions are labeled <em>directional-only</em> until real calibration cycles accrue.
+            Statistical defensibility is earned empirically, never asserted from panel size.</td></tr>
+    <tr><td><strong>Safe by default</strong></td>
+        <td>Hostile-amplification output is locked: its score informs the verdict, its text is
+            never displayed or copyable.</td></tr>
+  </table>
+
+  <div class="callout honest">
+    <strong>What we won't tell you:</strong> that this predicts outcomes today. It doesn't —
+    no real calibration data exists yet, and the UI says so on the tin. The pitch is the loop,
+    not a fake accuracy number.
+  </div>
+
+  <footer>
+    OVK red-team panel · Rust + HTMX backend over the OVK flow bus · this page:
+    <code>roadmap.html</code>, self-contained, no dependencies · engine details in
+    <code>server/README.md</code>
+  </footer>
+
+</main>
+</body>
+</html>

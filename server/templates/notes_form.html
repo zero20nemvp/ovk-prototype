@@ -1,0 +1,5 @@
+<form hx-post="/runs/{{ item }}/notes?lang={{ t.lang }}" hx-swap="outerHTML">
+  <textarea name="notes" rows="3" placeholder="{{ t.notes_placeholder }}">{{ notes }}</textarea>
+  <button type="submit">{{ t.save_notes }}</button>
+  {% if saved %}<span class="saved">{{ t.saved }}</span>{% endif %}
+</form>

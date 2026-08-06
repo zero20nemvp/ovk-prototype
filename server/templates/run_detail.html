@@ -1,0 +1,100 @@
+<div id="run-detail-frag"
+  {% if pending %}hx-get="/fragments/runs/{{ item }}?lang={{ t.lang }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+
+  <h2>{{ t.run_word }} #{{ item }}
+    {% if pending %}<span class="badge pending">{{ t.pending }}</span>{% endif %}
+    {% if engine_used.is_empty() %}{% else %}<span class="hint">{{ t.engine_word }}: {{ engine_used }}</span>{% endif %}
+  </h2>
+  <blockquote class="draft">{{ draft }}</blockquote>
+
+  {% match prediction %}
+  {% when Some with (p) %}
+  <section class="card">
+    <h3>{{ t.panel_prediction }} <span class="badge {{ p.verdict_class }}">{{ p.verdict }}</span></h3>
+    <p>{{ t.weighted_fav }} <strong>{{ p.weighted_pct }}</strong>
+       ({{ t.unweighted }} {{ p.unweighted_pct }}, {{ t.weighting_moved }} {{ p.delta }})
+       · {{ p.responders }} {{ t.responders }}</p>
+    <p>{{ t.sentiment }} {{ p.pos }} {{ t.positive }} / {{ p.neu }} {{ t.neutral }} / {{ p.neg }} {{ t.negative }}</p>
+    <div class="grid2">
+      <table>
+        <caption>{{ t.by_archetype }}</caption>
+        <thead><tr><th>{{ t.archetype_col }}</th><th>{{ t.weight_col }}</th><th>{{ t.fav_col }}</th></tr></thead>
+        <tbody>
+          {% for s in p.strata_arch %}
+          <tr><td>{{ s.name }}</td><td>{{ s.weight }}</td><td>{{ s.fav }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <table>
+        <caption>{{ t.by_locality }}</caption>
+        <thead><tr><th>{{ t.locality_col }}</th><th>{{ t.weight_col }}</th><th>{{ t.fav_col }}</th></tr></thead>
+        <tbody>
+          {% for s in p.strata_loc %}
+          <tr><td>{{ s.name }}</td><td>{{ s.weight }}</td><td>{{ s.fav }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">{{ p.confidence }}</p>
+    <details><summary class="hint">{{ t.raw_json }}</summary><pre>{{ p.raw }}</pre></details>
+  </section>
+  {% when None %}
+  <p class="hint">{{ t.no_prediction_yet }} {{ reply_count }} {{ t.replies_so_far }} {{ t.refreshes_hint }}</p>
+  {% endmatch %}
+
+  {% match outcome %}
+  {% when Some with (o) %}
+  <section class="card">
+    <h3>{{ t.outcome_heading }}</h3>
+    <p>{{ t.predicted_word }} <strong>{{ o.predicted_pct }}</strong>
+       · {{ t.actual_word }} <strong>{{ o.actual_pct }}</strong>
+       · {{ t.error_word }} <strong>{{ o.error }}</strong></p>
+    <p class="hint">{% for m in o.metrics %}{{ m.0 }}={{ m.1 }}&nbsp; {% endfor %}</p>
+  </section>
+  {% when None %}
+  {% if pending %}{% else %}
+  <section class="card">
+    <h3>{{ t.outcome_heading }}</h3>
+    <p class="hint">{{ t.outcome_hint }}</p>
+    {% if outcome_error.is_empty() %}{% else %}<p class="flash flash-err">{{ outcome_error }}</p>{% endif %}
+    <form class="outcome" hx-post="/runs/{{ item }}/outcome?lang={{ t.lang }}"
+          hx-target="#run-detail-frag" hx-swap="outerHTML">
+      <div class="row">
+        <label>{{ t.success_label }} <input name="success" inputmode="decimal" required></label>
+        <label>{{ t.ctr_label }} <input name="ctr" inputmode="decimal"></label>
+        <label>{{ t.conversion_label }} <input name="conversion" inputmode="decimal"></label>
+        <label>{{ t.engagement_label }} <input name="engagement" inputmode="decimal"></label>
+      </div>
+      <button type="submit">{{ t.record_outcome }}</button>
+    </form>
+  </section>
+  {% endif %}
+  {% endmatch %}
+
+  <section>
+    <h3>{{ t.persona_reactions }} ({{ replies.len() }})</h3>
+    {% for r in replies %}
+    <article class="card reply{% if r.locked %} locked{% endif %}">
+      <div class="row">
+        <strong>{{ r.display_name }}</strong>
+        {% if r.role.is_empty() %}{% else %}<span class="hint">{{ r.role }}</span>{% endif %}
+        {% if r.archetype.is_empty() %}{% else %}<span class="hint">· {{ r.archetype }}</span>{% endif %}
+        <button class="lock" hx-post="/personas/{{ r.persona_id }}/lock?item={{ item }}&lang={{ t.lang }}"
+                hx-target="#run-detail-frag" hx-swap="outerHTML">
+          {% if r.locked %}{{ t.unlock }}{% else %}{{ t.lock }}{% endif %}
+        </button>
+      </div>
+      {% if r.locked %}
+      <p class="hint">{{ t.locked_notice }}</p>
+      {% else %}
+      <p>{{ r.body }}</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+
+  <section>
+    <h3>{{ t.notes_heading }} <span class="hint">{{ t.notes_hint }}</span></h3>
+    {% include "notes_form.html" %}
+  </section>
+</div>
