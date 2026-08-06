@@ -1,4 +1,5 @@
 use std::io::{BufRead, BufReader, Write};
+use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -8,16 +9,26 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::Engine as _;
 use serde_json::{json, Value};
 
-/// Native client for the `ground flow` daemon's Unix-socket protocol:
-/// one connection per request, one JSON line out, one JSON line back.
-/// Command set (verified against the daemon): append, append_batch, len, get,
+/// Native client for the `ground flow` protocol: one connection per request,
+/// one JSON line out, one JSON line back. Two transports, same wire format:
+/// - Unix socket of a local per-queue daemon (dev);
+/// - TCP to the multiplexing flow hub (`ground flow hub`, e.g. OVK prod on
+///   the Air over the tailnet), which takes the queue name in a `queue` field
+///   on every request.
+/// Command set (verified against both): append, append_batch, len, get,
 /// cursor_create, cursor_delete, cursor_state, cursor_move, cursor_read.
 /// Bodies travel base64-encoded. Entries are immutable; readers only ever
 /// advance cursors — this client cannot modify OVK's queue history even by
 /// accident.
 #[derive(Debug, Clone)]
+enum Transport {
+    Unix(PathBuf),
+    Hub { addr: String, queue: String },
+}
+
+#[derive(Debug, Clone)]
 pub struct FlowClient {
-    socket_path: PathBuf,
+    transport: Transport,
 }
 
 /// A decoded queue entry.
@@ -38,7 +49,20 @@ const SUN_PATH_MAX: usize = 100;
 impl FlowClient {
     pub fn new(socket_path: PathBuf) -> Self {
         let socket_path = Self::shorten_if_needed(socket_path);
-        FlowClient { socket_path }
+        FlowClient { transport: Transport::Unix(socket_path) }
+    }
+
+    /// Client for the TCP flow hub. `addr` is "host:port"; `queue` is stamped
+    /// onto every request (the hub multiplexes queues by name).
+    pub fn new_hub(addr: String, queue: String) -> Self {
+        FlowClient { transport: Transport::Hub { addr, queue } }
+    }
+
+    pub fn describe(&self) -> String {
+        match &self.transport {
+            Transport::Unix(p) => format!("unix:{}", p.display()),
+            Transport::Hub { addr, queue } => format!("hub:{addr} queue:{queue}"),
+        }
     }
 
     fn shorten_if_needed(path: PathBuf) -> PathBuf {
@@ -214,9 +238,32 @@ impl FlowClient {
     }
 
     fn request(&self, payload: Value) -> Result<Value> {
-        let mut stream = UnixStream::connect(&self.socket_path).with_context(|| {
-            format!("cannot reach flow daemon at {}", self.socket_path.display())
-        })?;
+        match &self.transport {
+            Transport::Unix(path) => {
+                let stream = UnixStream::connect(path)
+                    .with_context(|| format!("cannot reach flow daemon at {}", path.display()))?;
+                stream.set_read_timeout(Some(Duration::from_secs(15)))?;
+                stream.set_write_timeout(Some(Duration::from_secs(15)))?;
+                Self::exchange(stream, payload)
+            }
+            Transport::Hub { addr, queue } => {
+                let mut payload = payload;
+                payload["queue"] = json!(queue);
+                let sock_addr = addr
+                    .to_socket_addrs()
+                    .ok()
+                    .and_then(|mut a| a.next())
+                    .ok_or_else(|| anyhow!("bad flow hub address '{addr}'"))?;
+                let stream = TcpStream::connect_timeout(&sock_addr, Duration::from_secs(8))
+                    .with_context(|| format!("cannot reach flow hub at {addr}"))?;
+                stream.set_read_timeout(Some(Duration::from_secs(15)))?;
+                stream.set_write_timeout(Some(Duration::from_secs(15)))?;
+                Self::exchange(stream, payload)
+            }
+        }
+    }
+
+    fn exchange<S: std::io::Read + Write>(mut stream: S, payload: Value) -> Result<Value> {
         let mut line = serde_json::to_string(&payload)?;
         line.push('\n');
         stream.write_all(line.as_bytes())?;
@@ -224,7 +271,7 @@ impl FlowClient {
         let mut resp = String::new();
         reader.read_line(&mut resp)?;
         if resp.is_empty() {
-            bail!("no response from flow daemon");
+            bail!("no response from flow endpoint");
         }
         Ok(serde_json::from_str(&resp)?)
     }

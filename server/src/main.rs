@@ -43,13 +43,17 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let flow = Arc::new(match &cfg.socket_override {
-        Some(p) => FlowClient::new(p.clone()),
-        None => FlowClient::discover(&cfg.ovk_root, &cfg.queue)
-            .context("discovering flow daemon socket")?,
+    let flow = Arc::new(if let Some(hub) = &cfg.flow_hub {
+        FlowClient::new_hub(hub.clone(), cfg.queue.clone())
+    } else if let Some(p) = &cfg.socket_override {
+        FlowClient::new(p.clone())
+    } else {
+        FlowClient::discover(&cfg.ovk_root, &cfg.queue)
+            .context("discovering flow daemon socket")?
     });
     eprintln!(
-        "rapids: queue '{}', {} entries, cursor '{}'",
+        "rapids: {} — queue '{}', {} entries, cursor '{}'",
+        flow.describe(),
         cfg.queue,
         flow.len().map(|n| n.to_string()).unwrap_or_else(|_| "?".into()),
         cfg.cursor

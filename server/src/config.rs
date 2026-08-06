@@ -13,6 +13,9 @@ pub struct Config {
     /// Explicit socket path override; when unset we discover it via
     /// `ground flow status <queue>` run inside ovk_root.
     pub socket_override: Option<PathBuf>,
+    /// TCP flow hub "host:port" (e.g. OVK prod on the Air over the tailnet).
+    /// When set, wins over local socket discovery entirely.
+    pub flow_hub: Option<String>,
     /// Durable cursor name this backend consumes the rapids with.
     pub cursor: String,
     /// "append" (default): submitting a draft appends the content:query and
@@ -51,6 +54,7 @@ impl Config {
             ovk_root,
             queue: env::var("OVK_QUEUE").unwrap_or_else(|_| "panel".into()),
             socket_override: env::var("OVK_FLOW_SOCKET").ok().map(PathBuf::from),
+            flow_hub: env::var("OVK_FLOW_HUB").ok().filter(|s| !s.is_empty()),
             cursor: env::var("OVK_CURSOR").unwrap_or_else(|_| "ovk-prototype".into()),
             runner,
             listener_enabled: env::var("OVK_LISTENER").as_deref() != Ok("0"),

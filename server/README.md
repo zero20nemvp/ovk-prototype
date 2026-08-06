@@ -48,6 +48,7 @@ Submissions choose an engine per run (radio in the form):
 |---|---|---|
 | `OVK_ROOT` | `../../ovk` | OVK checkout (read-only from our side) |
 | `OVK_QUEUE` | `panel` | flow queue name |
+| `OVK_FLOW_HUB` | unset | TCP flow hub `host:port` (OVK prod on the Air: `100.95.66.84:9440`); wins over socket discovery |
 | `OVK_FLOW_SOCKET` | discovered | explicit daemon socket path (skips discovery) |
 | `OVK_CURSOR` | `ovk-prototype` | durable cursor of the UI ingester |
 | `OVK_LISTENER` | `1` | resident panel listener (`0` disables) |
@@ -88,6 +89,30 @@ static/          vendored htmx
 - macOS caps Unix-socket paths at ~104 bytes; for deeply nested sockets the
   client transparently connects via a short symlink in the OS temp dir. (The
   daemon has the same limit — start it with a short/relative `--dir`.)
+
+## Production demo
+
+Live at **https://demo.ovk.zero2one.ee** — usable from any internet-connected
+machine; nothing depends on a dev laptop.
+
+Topology:
+- DNS `demo.ovk.zero2one.ee` → the Hetzner box (46.4.94.200), A record on
+  DNSimple (zone `zero2one.ee`).
+- The host's **Caddy** terminates TLS and reverse-proxies to the `ovk-demo`
+  LXC container (`10.14.235.94:8787`), same pattern as the other sites.
+- Inside the container: this server as systemd unit `ovk-demo.service`
+  (`/opt/ovk-prototype/server`, read-only OVK sync at `/opt/ovk`, data in
+  `/var/lib/ovk-demo`), pointed at **OVK prod**: the flow hub on the Air
+  (`OVK_FLOW_HUB=100.95.66.84:9440`, queue `panel`) over the tailnet, which
+  the container reaches through the host's NAT.
+- Model replies route to the dev box's Ollama (`100.70.158.4:11434`, per
+  OVK's `panel/llm.env`), also over the tailnet; if that box is off, runs
+  degrade to labeled mock.
+- The Air runs **only the hub** — no panel responder there; this container's
+  listener is the single answerer on the prod queue.
+
+Redeploy: rsync/tar the repo to `/opt/ovk-prototype` in the container,
+`cargo build --release` (rustup toolchain), `systemctl restart ovk-demo`.
 
 ## Not here yet (deliberately)
 

@@ -30,8 +30,21 @@ pub fn run(flow: FlowClient, store: Arc<Mutex<Store>>, cfg: Arc<Config>) {
     if let Err(e) = flow.cursor_create(cursor) {
         eprintln!("listener: cannot create cursor: {e:#}");
     }
+    // Backlog boundary for a FRESH cursor: everything that already existed
+    // when this process started is history and gets skipped; everything after
+    // — including a query submitted milliseconds after boot — gets answered.
+    // (Jumping to `head` at first tick instead would eat early submissions.)
+    let baseline = loop {
+        match flow.len() {
+            Ok(n) => break n,
+            Err(e) => {
+                eprintln!("listener: waiting for flow endpoint: {e:#}");
+                std::thread::sleep(Duration::from_secs(3));
+            }
+        }
+    };
     loop {
-        match step(&flow, &store, &cfg, cursor) {
+        match step(&flow, &store, &cfg, cursor, baseline) {
             Ok(true) => {}
             Ok(false) => std::thread::sleep(Duration::from_millis(1500)),
             Err(e) => {
@@ -47,22 +60,21 @@ fn step(
     store: &Arc<Mutex<Store>>,
     cfg: &Arc<Config>,
     cursor: &str,
+    baseline: u64,
 ) -> Result<bool> {
     flow.cursor_create(cursor)?; // idempotent; may have failed at startup
     let pos = flow.cursor_position(cursor)?;
-    // Fresh cursor: fast-forward past the backlog — the listener answers the
-    // future, not history. Done here (not just at startup) so a daemon that
-    // comes up late still gets the same behavior.
-    let Some(pos) = pos else {
-        let len = flow.len()?;
-        if len == 0 {
-            return Ok(false);
+    // Fresh cursor: skip exactly the pre-boot backlog (ordinals < baseline),
+    // then consume normally from there.
+    let next = match pos {
+        Some(p) => p + 1,
+        None if baseline > 0 => {
+            flow.cursor_commit(cursor, baseline - 1)?;
+            eprintln!("listener: fast-forwarded past {baseline} backlog entries");
+            baseline
         }
-        let at = flow.cursor_move_head(cursor)?;
-        eprintln!("listener: fast-forwarded past backlog to ordinal {at}");
-        return Ok(true);
+        None => 0,
     };
-    let next = pos + 1;
     let Some(entry) = flow.get(next)? else {
         return Ok(false);
     };
