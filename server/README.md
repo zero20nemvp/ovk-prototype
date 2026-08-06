@@ -111,6 +111,10 @@ Topology:
 - The Air runs **only the hub** — no panel responder there; this container's
   listener is the single answerer on the prod queue.
 
+`/mockup` on the same host serves the repo-root static sales demo
+(`index.html`, Tallinn scenarios, illustrative data) — baked into the binary
+with `include_str!`, so the whole repo must be synced, not just `server/`.
+
 Redeploy: rsync/tar the repo to `/opt/ovk-prototype` in the container,
 `cargo build --release` (rustup toolchain), `systemctl restart ovk-demo`.
 

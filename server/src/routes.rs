@@ -34,6 +34,7 @@ pub fn router(state: AppState) -> Router {
         .route("/fragments/runs/:item", get(run_fragment))
         .route("/fragments/calibration", get(calibration_fragment))
         .route("/static/htmx.min.js", get(htmx_js))
+        .route("/mockup", get(static_mockup))
         .with_state(state)
 }
 
@@ -648,6 +649,17 @@ async fn htmx_js() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "application/javascript")],
         include_str!("../static/htmx.min.js"),
+    )
+}
+
+/// The repo-root static sales mockup (Tallinn scenarios, illustrative data),
+/// baked in at compile time so it ships with this binary rather than needing a
+/// second deploy path. Unrelated to the live panel at `/`, which runs real
+/// submissions through OVK's queue.
+async fn static_mockup() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        include_str!("../../index.html"),
     )
 }
 
