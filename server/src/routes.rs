@@ -28,6 +28,7 @@ pub fn router(state: AppState) -> Router {
         .route("/runs", post(submit))
         .route("/runs/:item", get(run_page))
         .route("/runs/:item/notes", post(save_notes))
+        .route("/runs/:item/archive", post(toggle_archive))
         .route("/runs/:item/outcome", post(record_outcome))
         .route("/personas/:id/lock", post(toggle_lock))
         .route("/fragments/runs", get(runs_fragment))
@@ -43,6 +44,8 @@ pub fn router(state: AppState) -> Router {
 #[derive(Deserialize)]
 struct LangQuery {
     lang: Option<String>,
+    /// `archived=1` switches the runs list from the active to the archived shelf.
+    archived: Option<u8>,
 }
 
 fn resolve_lang(q: &LangQuery, headers: &HeaderMap) -> Lang {
@@ -79,6 +82,7 @@ struct IndexTemplate {
     queue: String,
     runner: String,
     engine_default: String,
+    show_archived: bool,
 }
 
 #[derive(Template)]
@@ -93,6 +97,8 @@ struct RunPageTemplate {
 struct RunsListTemplate {
     t: &'static T,
     runs: Vec<RunCard>,
+    show_archived: bool,
+    archived_count: u64,
 }
 
 struct RunCard {
@@ -311,6 +317,7 @@ async fn index(
             }
         },
         engine_default: st.cfg.reply_engine.clone(),
+        show_archived: q.archived == Some(1),
     };
     with_lang_cookie(lang, page.into_response())
 }
@@ -330,9 +337,15 @@ async fn runs_fragment(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, AppError> {
     let lang = resolve_lang(&q, &headers);
-    let runs = {
+    runs_list(&st, lang, q.archived == Some(1))
+}
+
+/// The runs list for one shelf (active or archived) — shared by the polled
+/// fragment and the archive toggle's instant refresh.
+fn runs_list(st: &AppState, lang: Lang, show_archived: bool) -> Result<RunsListTemplate, AppError> {
+    let (runs, archived_count) = {
         let store = st.store.lock().expect("store mutex poisoned");
-        store.list_runs()?
+        (store.list_runs(show_archived)?, store.archived_count()?)
     };
     let runs = runs
         .into_iter()
@@ -359,7 +372,36 @@ async fn runs_fragment(
             }
         })
         .collect();
-    Ok(RunsListTemplate { t: t(lang), runs })
+    Ok(RunsListTemplate { t: t(lang), runs, show_archived, archived_count })
+}
+
+#[derive(Deserialize)]
+struct ArchiveForm {
+    /// Target state: "1" archives, anything else unarchives.
+    #[serde(default)]
+    to: String,
+}
+
+/// Archive/unarchive is enrichment on our side only — the run stays on the
+/// rapids untouched; it just moves between the two shelves of the list view.
+async fn toggle_archive(
+    State(st): State<AppState>,
+    Path(item): Path<u64>,
+    Query(q): Query<LangQuery>,
+    headers: HeaderMap,
+    Form(form): Form<ArchiveForm>,
+) -> Result<impl IntoResponse, AppError> {
+    let lang = resolve_lang(&q, &headers);
+    {
+        let store = st.store.lock().expect("store mutex poisoned");
+        if store.get_run(item)?.is_none() {
+            return Err(AppError::NotFound);
+        }
+        store.set_archived(item, form.to == "1")?;
+    }
+    // Respond with the shelf the user is looking at, so the row disappears
+    // (or reappears) immediately instead of waiting for the next poll.
+    runs_list(&st, lang, q.archived == Some(1))
 }
 
 async fn run_fragment(
@@ -589,7 +631,7 @@ async fn toggle_lock(
     Query(q): Query<LockQuery>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, AppError> {
-    let lang = resolve_lang(&LangQuery { lang: q.lang.clone() }, &headers);
+    let lang = resolve_lang(&LangQuery { lang: q.lang.clone(), archived: None }, &headers);
     {
         let store = st.store.lock().expect("store mutex poisoned");
         store.toggle_locked(&id)?;

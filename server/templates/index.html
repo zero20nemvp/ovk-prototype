@@ -19,7 +19,7 @@
 
 <section>
   <h2>{{ t.runs_heading }}</h2>
-  <div id="runs" hx-get="/fragments/runs?lang={{ t.lang }}" hx-trigger="load, every 3s" hx-swap="innerHTML">
+  <div id="runs" hx-get="/fragments/runs?lang={{ t.lang }}{% if show_archived %}&archived=1{% endif %}" hx-trigger="load, every 3s" hx-swap="innerHTML">
     <p class="hint">{{ t.loading }}</p>
   </div>
 </section>

@@ -31,6 +31,7 @@ pub struct Run {
     pub enqueued_at: i64,
     pub reply_count: u64,
     pub engine_used: Option<String>,
+    pub archived: bool,
 }
 
 /// Startup seed for the persona enrichment rows: identity from OVK's panel
@@ -99,6 +100,7 @@ impl Store {
             "ALTER TABLE personas ADD COLUMN lock_touched INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE runs ADD COLUMN outcome_ordinal INTEGER",
             "ALTER TABLE runs ADD COLUMN outcome_json TEXT",
+            "ALTER TABLE runs ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
         ] {
             let _ = self_migrate(&conn, ddl);
         }
@@ -211,16 +213,30 @@ impl Store {
         "r.item_ordinal, r.draft, r.status, r.prediction_ordinal, r.prediction_json,
          r.outcome_ordinal, r.outcome_json, r.notes, r.enqueued_at,
          (SELECT COUNT(*) FROM replies p WHERE p.item_ordinal = r.item_ordinal),
-         m.engine_used";
+         m.engine_used, r.archived";
 
-    pub fn list_runs(&self) -> Result<Vec<Run>> {
+    /// The runs list is a view onto either the active or the archived shelf —
+    /// never both, so hiding a run really removes it from the default screen.
+    pub fn list_runs(&self, archived: bool) -> Result<Vec<Run>> {
         let mut stmt = self.conn.prepare(&format!(
             "SELECT {} FROM runs r LEFT JOIN run_meta m ON m.item_ordinal = r.item_ordinal
-             ORDER BY r.item_ordinal DESC",
+             WHERE r.archived = ?1 ORDER BY r.item_ordinal DESC",
             Self::RUN_COLS
         ))?;
-        let rows = stmt.query_map([], Self::row_to_run)?;
+        let rows = stmt.query_map(params![archived as i64], Self::row_to_run)?;
         Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    /// Total runs on either shelf — the consumer's is-the-store-empty check
+    /// must not mistake an all-archived store for a wiped one.
+    pub fn run_count(&self) -> Result<u64> {
+        Ok(self.conn.query_row("SELECT COUNT(*) FROM runs", [], |r| r.get(0))?)
+    }
+
+    pub fn archived_count(&self) -> Result<u64> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM runs WHERE archived = 1", [], |r| r.get(0))?)
     }
 
     pub fn get_run(&self, item_ordinal: u64) -> Result<Option<Run>> {
@@ -275,6 +291,14 @@ impl Store {
     }
 
     // ── enrichment writes (ours alone; never touch the rapids) ──────────────
+
+    pub fn set_archived(&self, item_ordinal: u64, archived: bool) -> Result<()> {
+        self.conn.execute(
+            "UPDATE runs SET archived = ?2 WHERE item_ordinal = ?1",
+            params![item_ordinal, archived as i64],
+        )?;
+        Ok(())
+    }
 
     pub fn set_notes(&self, item_ordinal: u64, notes: &str) -> Result<()> {
         self.conn.execute(
@@ -348,6 +372,7 @@ impl Store {
             enqueued_at: r.get(8)?,
             reply_count: r.get(9)?,
             engine_used: r.get(10)?,
+            archived: r.get::<_, i64>(11)? != 0,
         })
     }
 }

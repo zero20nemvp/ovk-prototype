@@ -1,5 +1,8 @@
-{% if runs.is_empty() %}
-<p class="hint">{{ t.no_runs }}</p>
+{% if show_archived %}
+<p class="hint">🗄 {{ t.archived_shelf }} — <a href="/?lang={{ t.lang }}">{{ t.back_to_active }}</a></p>
+{% if runs.is_empty() %}<p class="hint">{{ t.no_archived }}</p>{% endif %}
+{% else %}
+{% if runs.is_empty() %}<p class="hint">{{ t.no_runs }}</p>{% endif %}
 {% endif %}
 {% for r in runs %}
 <a class="card run" href="/runs/{{ r.item }}?lang={{ t.lang }}">
@@ -16,6 +19,13 @@
     {% endif %}
     <span class="hint">{{ r.reply_count }} {{ t.replies_word }}</span>
     {% if r.has_outcome %}<span class="hint">✓ {{ t.actual_word }}</span>{% endif %}
+    <button class="archive-btn" onclick="event.preventDefault()"
+      hx-post="/runs/{{ r.item }}/archive?lang={{ t.lang }}{% if show_archived %}&archived=1{% endif %}"
+      hx-vals='{"to":"{% if show_archived %}0{% else %}1{% endif %}"}'
+      hx-target="#runs">{% if show_archived %}{{ t.unarchive_word }}{% else %}{{ t.archive_word }}{% endif %}</button>
   </div>
 </a>
 {% endfor %}
+{% if !show_archived && archived_count > 0 %}
+<p class="hint"><a href="/?archived=1&lang={{ t.lang }}">🗄 {{ archived_count }} {{ t.archived_shelf }} →</a></p>
+{% endif %}

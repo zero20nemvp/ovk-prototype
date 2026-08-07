@@ -22,8 +22,8 @@ pub fn run(flow: FlowClient, store: Arc<Mutex<Store>>, cursor: String) {
         let empty = store
             .lock()
             .expect("store mutex poisoned")
-            .list_runs()
-            .map(|r| r.is_empty())
+            .run_count()
+            .map(|n| n == 0)
             .unwrap_or(false);
         match flow.cursor_position(&cursor) {
             Ok(Some(p)) if empty && p > 0 => {
