@@ -46,6 +46,9 @@ impl Config {
     pub fn from_env() -> Self {
         let ovk_root =
             PathBuf::from(env::var("OVK_ROOT").unwrap_or_else(|_| "../../ovk".into()));
+        // Absolutize: script paths built from this root are passed to commands
+        // that also set current_dir to it, so a relative root resolves wrong.
+        let ovk_root = ovk_root.canonicalize().unwrap_or(ovk_root);
         let runner = match env::var("OVK_RUNNER").as_deref() {
             Ok("panel-run") => Runner::PanelRun,
             _ => Runner::AppendOnly,

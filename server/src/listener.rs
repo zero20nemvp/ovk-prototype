@@ -235,19 +235,19 @@ fn system_prompt(persona_md: &str) -> String {
 /// exercises the sentiment scorer.
 fn mock_reply(archetype: &str) -> &'static str {
     match archetype {
-        "Everyman" => "Looks decent for people like me, but buying glasses online feels a bit risky — I'd want to know the fit is right.",
-        "Caregiver" => "The free try-on is reassuring, that matters when it's for the family; I'd want to trust the lenses are done properly.",
-        "Explorer" => "Love that new collections drop monthly — I'd try a pair, sounds fresh and different.",
-        "Creator" => "Interested if the design's actually original; $29 makes me worry it'll look cheap though.",
-        "Sage" => "Need the specs — lens quality, materials, prescription accuracy — the price alone tells me nothing.",
-        "Ruler" => "At $29 I doubt the quality; I'd pay more for something dependable and well-made.",
-        "Lover" => "If they look beautiful and suit me, I'm tempted — the home try-on makes it feel safe.",
-        "Innocent" => "Sounds easy and honest, and the try-on is a nice touch — I like that there's no catch.",
-        "Jester" => "Ha, monthly drops of cheap specs? Kind of fun, I'd grab a pair just to mess around.",
-        "Outlaw" => "Every brand says 'designer-look for $29' — sounds like hype, I don't trust it.",
-        "Hero" => "If they hold up and get the job done, great; the free shipping and try-on seal it for me.",
-        "Magician" => "Nice idea if it really transforms how buying glasses feels — the try-on hints at that.",
-        _ => "Seems okay, I'd need to see more before buying.",
+        "Everyman" => "I'd want to know what this actually changes for my street and my wallet before making my mind up — the announcement alone doesn't tell me.",
+        "Caregiver" => "If the children's daily routine is protected I could support this — and promising parent meetings before anything changes is reassuring.",
+        "Explorer" => "Change doesn't scare me — this reads like a step forward and I'd welcome trying the new arrangement.",
+        "Creator" => "The wording is polished, but I'm looking for the substance behind it — show me what's actually being decided.",
+        "Sage" => "Where are the figures? Dates, budget lines, sources — until those are on the table this text tells me nothing.",
+        "Ruler" => "A city that governs properly publishes dates and budgets; this feels rushed and I doubt the follow-through.",
+        "Lover" => "The tone is respectful and it feels fair — if they follow through with the same warmth, I'm on board.",
+        "Innocent" => "It sounds honest and clear to me — I believe the city means well with this.",
+        "Jester" => "Ah, another majestic press release from city hall — I'll believe it when the diggers actually show up.",
+        "Outlaw" => "I don't trust a word of this — it's spin, the decision was made long ago and residents are the last to hear.",
+        "Hero" => "Commitments are only real when tracked — I'll be watching whether each promise here actually gets delivered.",
+        "Magician" => "There's a real chance here to change how the city feels — done properly, this is a welcome shift.",
+        _ => "I'd need to see more detail before I can say.",
     }
 }
 
@@ -288,6 +288,9 @@ fn aggregate(
 ) -> Result<String> {
     let dir = data_dir.join(format!("tmp-aggregate-{item}"));
     std::fs::create_dir_all(&dir)?;
+    // Absolutize: the aggregate child runs with current_dir(ovk_root), which
+    // would re-resolve a relative data_dir against the wrong root.
+    let dir = dir.canonicalize()?;
     for (id, text) in replies {
         std::fs::write(dir.join(id), text)?;
     }
