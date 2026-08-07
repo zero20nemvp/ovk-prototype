@@ -6,7 +6,18 @@
   <title>{% block title %}OVK · red-team panel{% endblock %}</title>
   <script src="/static/htmx.min.js"></script>
   <style>
-    :root { color-scheme: light dark; --muted: #778; }
+    /* Colour comes from the UA canvas, so switching color-scheme switches the
+       whole page. The badge steps are the one thing that needs its own dark
+       values — the light depths go muddy on a dark canvas. */
+    :root { color-scheme: light dark; --muted: #778;
+            --win: #1a7f37; --mixed: #b57e10; --flop: #b42318; }
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"]  { color-scheme: dark;
+            --muted: #98a0ab; --win: #199e70; --mixed: #d9a62a; --flop: #df5a50; }
+    @media (prefers-color-scheme: dark) {
+      :root:where(:not([data-theme="light"])) {
+            --muted: #98a0ab; --win: #199e70; --mixed: #d9a62a; --flop: #df5a50; }
+    }
     * { box-sizing: border-box; }
     body { margin: 0; font: 15px/1.55 -apple-system, "Segoe UI", "Helvetica Neue", sans-serif; }
     header { display: flex; align-items: baseline; gap: .75rem; padding: .9rem 1.25rem;
@@ -29,13 +40,13 @@
     .ord { color: var(--muted); font-variant-numeric: tabular-nums; }
     .badge { font-size: .72rem; font-weight: 700; letter-spacing: .04em; padding: .1rem .5rem;
              border-radius: 999px; border: 1px solid currentColor; }
-    .badge.win   { color: #1a7f37; }
-    .badge.mixed { color: #b57e10; }
-    .badge.flop  { color: #b42318; }
+    .badge.win   { color: var(--win); }
+    .badge.mixed { color: var(--mixed); }
+    .badge.flop  { color: var(--flop); }
     .badge.pending { color: var(--muted); }
     .flash { padding: .5rem .75rem; border-radius: 8px; border: 1px solid; margin: .6rem 0; }
-    .flash-ok  { color: #1a7f37; }
-    .flash-err { color: #b42318; }
+    .flash-ok  { color: var(--win); }
+    .flash-err { color: var(--flop); }
     .reply .lock { margin-left: auto; font-size: .75rem; padding: .1rem .5rem; }
     .reply.locked { background: rgba(128,128,128,.08); }
     blockquote.draft { margin: .6rem 0; padding: .6rem .9rem; border-left: 3px solid rgba(128,128,128,.6);
@@ -46,7 +57,7 @@
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 40rem) { .grid2 { grid-template-columns: 1fr; } }
     pre { overflow-x: auto; font-size: .8rem; }
-    .saved { color: #1a7f37; margin-left: .5rem; }
+    .saved { color: var(--win); margin-left: .5rem; }
     form { margin: .6rem 0; }
     form.outcome label { display: inline-flex; flex-direction: column; font-size: .82rem;
                          color: var(--muted); margin: .3rem .8rem .3rem 0; }
@@ -55,6 +66,7 @@
     fieldset.engine { border: none; padding: 0; margin: .4rem 0; }
     fieldset.engine label { margin-right: 1.2rem; font-size: .88rem; }
     header .lang { margin-left: auto; font-size: .85rem; }
+    header .theme { font-size: .85rem; padding: .15rem .6rem; }
   </style>
 </head>
 <body>
@@ -62,7 +74,32 @@
   <a href="/">OVK · red-team panel</a>
   <span class="sub">{{ t.tagline }}</span>
   <a class="lang" href="?lang={{ t.other_lang }}">{{ t.toggle_label }}</a>
+  <button class="theme" id="theme-btn" type="button" hidden></button>
 </header>
 <main>{% block body %}{% endblock %}</main>
+<script>
+  // Theme lives on <html> and in localStorage, so HTMX fragment swaps never
+  // disturb it and no server round-trip is needed. Untouched = follow the OS.
+  (function(){
+    var KEY = "ovk_theme", btn = document.getElementById("theme-btn");
+    var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    function stored(){ try { var v = localStorage.getItem(KEY); return (v === "light" || v === "dark") ? v : null; } catch(e){ return null; } }
+    function system(){ return (mq && mq.matches) ? "dark" : "light"; }
+    function apply(theme, persist){
+      document.documentElement.setAttribute("data-theme", theme);
+      btn.textContent = theme === "dark" ? "☀︎" : "☾";
+      btn.setAttribute("aria-label", theme === "dark" ? "Switch to light" : "Switch to dark");
+      btn.hidden = false;
+      if (persist) { try { localStorage.setItem(KEY, theme); } catch(e){} }
+    }
+    btn.addEventListener("click", function(){
+      apply(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark", true);
+    });
+    if (mq && mq.addEventListener) {
+      mq.addEventListener("change", function(){ if (!stored()) apply(system(), false); });
+    }
+    apply(stored() || system(), false);
+  })();
+</script>
 </body>
 </html>
