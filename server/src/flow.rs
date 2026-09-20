@@ -46,6 +46,40 @@ pub struct Entry {
 /// kernel resolves at connect time.
 const SUN_PATH_MAX: usize = 100;
 
+/// The hub's shared secret, read the same two ways `ground` reads it:
+/// `$FLOW_HUB_SECRET`, else the contents of `$FLOW_HUB_SECRET_FILE`. Absent
+/// means the hub is expected to be running without one, where it serves only
+/// loopback — so we send no token and the request stands or falls on the peer
+/// check, exactly as before.
+fn hub_secret() -> Option<String> {
+    if let Ok(s) = std::env::var("FLOW_HUB_SECRET") {
+        let s = s.trim().to_string();
+        if !s.is_empty() {
+            return Some(s);
+        }
+    }
+    let path = std::env::var("FLOW_HUB_SECRET_FILE").ok()?;
+    let s = std::fs::read_to_string(path).ok()?.trim().to_string();
+    (!s.is_empty()).then_some(s)
+}
+
+/// Proof that we know the hub secret, bound to this request: SHA-256 over
+/// `secret \0 op \0 queue`, hex. Must match `flow::socket::hub_auth_token` in
+/// ground byte for byte — the NUL separators included, without which
+/// ("appen","dflow") and ("append","flow") would hash the same. The queue is
+/// in the token because the hub is multi-queue: binding only the op would make
+/// a token minted for one queue valid for every queue in the world.
+fn hub_auth_token(secret: &str, op: &str, queue: &str) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(secret.as_bytes());
+    h.update(b"\0");
+    h.update(op.as_bytes());
+    h.update(b"\0");
+    h.update(queue.as_bytes());
+    format!("{:x}", h.finalize())
+}
+
 impl FlowClient {
     pub fn new(socket_path: PathBuf) -> Self {
         let socket_path = Self::shorten_if_needed(socket_path);
@@ -249,6 +283,14 @@ impl FlowClient {
             Transport::Hub { addr, queue } => {
                 let mut payload = payload;
                 payload["queue"] = json!(queue);
+                // A hub started with a secret refuses every request that cannot
+                // prove it knows one. Without this the client reached the door
+                // and was turned away on each call, which surfaced as the panel
+                // degrading to mock with no indication that the cause was auth.
+                if let Some(secret) = hub_secret() {
+                    let op = payload.get("cmd").and_then(|c| c.as_str()).unwrap_or("");
+                    payload["auth"] = json!(hub_auth_token(&secret, op, queue));
+                }
                 let sock_addr = addr
                     .to_socket_addrs()
                     .ok()
