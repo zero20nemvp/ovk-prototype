@@ -1,0 +1,69 @@
+# Deploy the panel to demo.ovk.zero2one.ee.
+#
+# Anyone with WRITE access to this repository can deploy: push to main, or run
+# this workflow by hand from the Actions tab. No credentials are handed out —
+# the SSH key lives in repository secrets and is only ever visible to the
+# runner. Read access is deliberately not enough, and this repository is
+# public: cloning it, or opening a pull request from a fork, gives no route to
+# the server. GitHub withholds secrets from fork pull requests by design.
+#
+# One-time setup is in deploy/README.md.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    # Docs-only changes do not need a deploy.
+    paths-ignore:
+      - '**/*.md'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit or branch to deploy (default: the checked-out ref)'
+        required: false
+        type: string
+
+# One deploy at a time; a newer one waits rather than racing the build.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the full history
+        uses: actions/checkout@v4
+        with:
+          # deploy.sh resolves a ref with git, so it needs more than a shallow clone.
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install the deploy key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "::error::secrets.DEPLOY_SSH_KEY is not set — see deploy/README.md"
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Deploy
+        env:
+          DEPLOY_SSH_KEY_FILE: ~/.ssh/deploy_key
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST || '46.4.94.200' }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'root' }}
+          DEPLOY_CONTAINER: ${{ vars.DEPLOY_CONTAINER || 'ovk-demo' }}
+          DEPLOY_HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL || 'https://demo.ovk.zero2one.ee/mockup' }}
+        run: ./deploy/deploy.sh
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
